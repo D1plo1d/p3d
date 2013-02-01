@@ -7,6 +7,7 @@ P3D was originally developed to efficiently parse 3D mesh files for use in WebGL
 
 P3D's cutting edge use of HTML5 APIs (WebWorker, Typed Array, Blob, File, Blob URLs and Transferable Objects) makes loading 3D models fast and unobtrusive. P3D's use of HTML5 WebWorkers allows P3D to drastically reduces browser lockup when processing file while P3D's use of typed arrays, transferable objects and blobs serve to keep memory usage and garbage collection overhead at a minimum.
 
+
 Project Status
 ---------------
 
