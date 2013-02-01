@@ -9,7 +9,7 @@ P3D was originally developed to efficiently parse 3d files into WebGL across all
 Project Status
 ---------------
 
-Both binary and ascii STLs are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (text only, no edge support yet).
+Both binary and ascii STLs are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (no compression or edge support yet).
 
 WebWorker background processing is available via P3D's background option.
 
