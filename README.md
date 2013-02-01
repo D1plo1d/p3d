@@ -3,7 +3,7 @@ P3D
 
 A Coffeescript 3D Mesh parser for a better web.
 
-P3D was originally developed to efficiently parse 3d files into webGL across all libraries (ThreeJS/PhiloGL/[your library here]). However it is not only independent of a specific webGL interface but of webGL altogether. Thus P3D has been carefully designed to support the next generation of in-browser 3d object manipulation applications.
+P3D was originally developed to efficiently parse 3d files into WebGL across all libraries (ThreeJS/PhiloGL/[your library here]). However it is not only independent of a specific WebGL interface but of WebGL altogether. Thus P3D has been carefully designed to support the next generation of in-browser 3d object manipulation applications.
 
 Please note that while P3D is already working in a number of cases it is also still in early development and has not yet been publicly announced. Bug reports and pull requests are very welcome.
 
@@ -22,7 +22,7 @@ Example Usage (in coffeescript)
 
 ```coffeescript
 # Using P3D's chunking feature to load an object as 2^16 vert segments
-# This allows us to load arbitrarily large objects even with webGL's
+# This allows us to load arbitrarily large objects even with WebGL's
 # current limitation 2^16 verts per mesh.
 # This example loads the mesh from a url in to a PhilloGL O3D.Model object.
 # Requirements: PhiloGL
