@@ -3,7 +3,7 @@ P3D
 
 A Coffeescript 3D Mesh parser for a better web.
 
-P3D was originally developed to parse 3d files into webGL across all libraries (ThreeJS/PhiloGL/[your library here]). However it is not only independent of a specific webGL interface but of webGL altogether. Thus P3D has been carefully designed to support the next generation of in-browser 3d object manipulation applications.
+P3D was originally developed to efficiently parse 3d files into webGL across all libraries (ThreeJS/PhiloGL/[your library here]). However it is not only independent of a specific webGL interface but of webGL altogether. Thus P3D has been carefully designed to support the next generation of in-browser 3d object manipulation applications.
 
 Please note that while P3D is already working in a number of cases it is also still in early development and has not yet been publicly announced. Bug reports and pull requests are very welcome.
 
