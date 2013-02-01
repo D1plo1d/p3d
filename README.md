@@ -5,6 +5,7 @@ A Coffeescript 3D Mesh parser for a better web.
 
 P3D was originally developed to efficiently parse 3D mesh files for use in WebGL across all libraries (ThreeJS/PhiloGL/[your library here]). However P3D is not only independent of a specific WebGL interface but of WebGL altogether. This is by design, by remaining unbound to webGL P3D has been carefully constructed to support the next generation of in-browser 3D object manipulation applications regardless of the rendering and mesh manipulation technologies that they require.
 
+P3D's cutting edge use of HTML5 APIs (WebWorker, Typed Array, Blob, File, Blob URLs and Transferable Objects) makes loading 3D models fast and unobtrusive. P3D's use of HTML5 WebWorkers allows P3D to drastically reduces browser lockup when processing file while P3D's use of typed arrays, transferable objects and blobs serve to keep memory usage and garbage collection overhead at a minimum.
 
 Project Status
 ---------------
