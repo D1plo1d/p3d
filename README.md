@@ -1,9 +1,16 @@
 P3D
 ====
 
-A Coffeescript 3D Mesh parser for a better web. Although P3D was originally developed for use with webGL it is fully agnostic of webGL or any webGL library and is designed to support a new generation of in-browser 3d object manipulation application.
+A Coffeescript 3D Mesh parser for a better web.
 
-P3D is currently under development and has not yet been publicly announced. Both binary and ascii STLs are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (text only, no edge support yet).
+P3D was originally developed to parse 3d files into webGL across all libraries (ThreeJS/PhiloGL/[your library here]). However it is not independent of any specific webGL api but of webGL altogether. Thus P3D has been carefully designed to support the next generation of in-browser 3d object manipulation applications.
+
+Please note that while P3D is already working in a number of cases it is also still in early development and has not yet been publicly announced. Bug reports and pull requests are very welcome.
+
+Project Status
+---------------
+
+Both binary and ascii STLs are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (text only, no edge support yet).
 
 WebWorker background processing is available via P3D's background option.
 
