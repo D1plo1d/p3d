@@ -35,6 +35,14 @@ parseXml = (text) ->
     xmlDoc.async=false
     xml.loadXML(text)
 
+hermiteSpline = (s, v, t) -> # see http://en.wikipedia.org/wiki/Cubic_Hermite_spline
+  # (2*s^3 - 3*s^2 + 1)*v[0] + (s^3 - 2*s^2 + s)*t[0] + (-2*s^3 + 3*s^2)*v[1] + (s^3-s^2)*t[1]
+  c = [
+    [ 2*Math.pow(s,3) - 3*Math.pow(s,2) + 1, Math.pow(s,3) - 2*Math.pow(s,2) + s ],
+    [ -2*Math.pow(s,3) + 3*Math.pow(s,2), Math.pow(s,3) - Math.pow(s,2) ]
+  ]
+  v[0][i]*c[0][0] + t[0][i]*c[0][1] + v[1][i]*c[1][0] + t[1][i]*c[1][1] for i in [0..2]
+
 base64_encode = (data) ->
   # http://kevin.vanzonneveld.net
   # +   original by: Tyler Akins (http://rumkin.com)
@@ -265,10 +273,9 @@ class self.P3D.Parser
       undefined
 
     # Scaling the object to mm
-    console.log xml
+    #console.log xml
     unitStr = root.getAttribute("unit") || root.getAttribute("units")
     scale = @_toMillimeters unitStr
-    console.log scale
 
     # initializing indice and vert counts
     vertCount = 0; indiceCount = 0
@@ -290,20 +297,95 @@ class self.P3D.Parser
     $ "//triangle", (node) ->
       indices[indiceCount++] = parseInt(read node, "v#{k}") for k in [1..3]
 
+    # Helper Functions
+    isFlat = (face) -> ( (n = face.normals)[0] == n[1] == n[2] )
+    cross = (vA, vB) -> [
+        vA[1]*vB[2] - vA[2]*vB[1],
+        vA[2]*vB[0] - vA[0]*vB[2],
+        vA[0]*vB[1] - vA[1]*vB[0]
+      ]
+    magnitude = (v) -> Math.sqrt Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2)
+    
+    # Adds a face's vertices and normals to the mesh at the given index
+    addFace = (face, mesh, index) -> for attr in ['vertices', 'normals']
+      mesh[attr][index+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
+
     # Expanding (duplicating) the normals and verts so that there is a 1:1 of verts to indices
     # This allows us to modify the normals on a per-face basis in edges and makes mesh spliting trivial
-    nOfTriangles = @nOfTriangles = indices.length/3 # TODO: when noftriangles is fixed this will be implicit
+    nOfTriangles = indices.length/3 # TODO: when noftriangles is fixed this will be implicit
     exp = {}
-    exp[attr] = new Float32Array(@nOfTriangles*9) for attr in ['vertices', 'normals']
-    @_eachFace (face, i) ->
-      console.log i
-      for attr in ['vertices', 'normals']
-        exp[attr][i*9+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
+    exp[attr] = new Float32Array(nOfTriangles*9) for attr in ['vertices', 'normals']
+    @_eachFace (face, i) -> addFace(face, exp, i*9)
     indices[i] = i for i in [0..indices.length-1]
     @[attr] = exp[attr] for attr in ['vertices', 'normals']
     @verts = @vertices
 
     # Define the normals for verts without a normal as the normal vector of the face
+    @_eachFace @_calculateVertexNormals
+
+    #return
+    # Counting Curved Surfaces
+    subdivisionLevels = 4
+    trianglesPerSurface = Math.pow 4, subdivisionLevels
+    @_eachFace (face) -> ( nOfTriangles += trianglesPerSurface-1 if !isFlat face )
+
+    # Subdividing Curved Surfaces
+    exp[attr] = new Float32Array(nOfTriangles*9) for attr in ['vertices', 'normals']
+    vertCount = 0
+
+    subdivide = (face, fIndex) ->
+      # calculating each edge midpoint and normal
+      midVerts = []
+      midNormals = []
+      for edge in [[0,1], [1,2], [2,0]]
+        v = [ face.vertices[edge[0]], face.vertices[edge[1]] ]
+        n = [ face.normals[edge[0]], face.normals[edge[1]] ]
+        d = ( v[1][i] - v[0][i] for i in [0..2] )
+        t = for i in [0..1]
+          crossProduct = cross cross(n[i], d), n[i]
+          ( magnitude(d) * crossProduct[j] / magnitude(crossProduct) for j in [0..2] )
+        midVerts.push v01 = hermiteSpline(0.5, v, t, fIndex)
+        # TODO: these normals are probably only aproximately correct.
+        # What is the proper way to calculate these??
+        midNormals.push n01 = ( (n[1][i] + n[0][i])/2 for i in [0..2] )
+
+      newFaces = for i in [0..2] # calculating the outer subdivided faces
+        vertices: [ midVerts[i], midVerts[ j = (i+2)%3 ], face.vertices[i] ]
+        normals: [ midNormals[i], midNormals[j], face.normals[i] ]
+      #newFaces = []
+      newFaces.push # calculating the center subdivided faces
+        vertices: midVerts, normals: midNormals
+
+      return newFaces
+
+    # iterating through each original face and subdividing it if it is has non-uniform normals
+    @_eachFace (face, fIndex) ->
+      if isFlat face
+        for attr in ['vertices', 'normals']
+          exp[attr][vertCount+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
+        vertCount += 9
+      else
+        faces = [face]
+        newFaces = []
+        for i in [0..subdivisionLevels-1]
+          newFaces = []
+          for f in faces
+            newFaces.push f2 for f2 in subdivide f, fIndex + Math.pow(4,i)
+          faces = newFaces
+        # adding each subdivided face to the mesh
+        for f in newFaces
+          addFace f, exp, vertCount
+          #addFace face, exp, vertCount
+          vertCount += 9
+
+
+    indices = @indices = new Float32Array(nOfTriangles*3)
+    @indices[i] = i for i in [0..@indices.length-1]
+    @[attr] = exp[attr] for attr in ['vertices', 'normals']
+    @verts = @vertices
+
+    # TODO: temporarily using face normals for the subdivided faces until I figure out how to calculate them.
+    @nOfTriangles = nOfTriangles
     @_eachFace @_calculateVertexNormals
 
     # Parsing Edges (TODO)
@@ -313,6 +395,8 @@ class self.P3D.Parser
     #    verts[vertCount++] = parseFloat s
     # TODO: eventually we will be able to pull normals from the AMF file
     #@_eachFace @_calculateVertexNormals
+
+    @nOfTriangles = nOfTriangles
     undefined
 
   _parseTextObj: (text) ->
@@ -417,7 +501,8 @@ class self.P3D.Parser
         f.normals[i][j] = vN[j] for j in [0..2]
 
   # Splits the object into 2^16 vert chunks and returns the chunks
-  split: () =>
+  split: () => # TODO: since each object's verts are 1:1 with indices at this point we can use monolithic subarrays here
+    #console.log "splitting"
     bytesPerMesh = Math.pow(2,16) # is this even in bytes!?
     bytesPerMesh -= bytesPerMesh % 9 # Rounding the bytes per mesh down to the nearest face
 
