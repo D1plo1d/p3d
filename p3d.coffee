@@ -119,7 +119,7 @@ else
 # -----------------------------------------------------
 class self.P3D
 
-  _fileTypeWhitelist: ["Stl", "Amf"]
+  _fileTypeWhitelist: ["Stl", "Amf", "Obj"]
 
   # Creates a P3D parser which loads the src url or HTML5 file object and 
   # fires the callback when it's geometry is ready
@@ -257,6 +257,21 @@ class self.P3D.Parser
       indices[i] = i for i in [0 .. indices.length]
     return [@normals, @verts, @indices]
 
+  # Adds a face's vertices and normals to the mesh at the given index
+  _addFace: (face, mesh, index) -> for attr in ['vertices', 'normals']
+    mesh[attr][index+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
+
+  # Expanding (duplicating) the normals and verts so that there is a 1:1 of verts to indices
+  # This allows us to modify the normals on a per-face basis in edges and makes mesh spliting trivial
+  _expandVerts: ->
+    @nOfTriangles = @indices.length/3 # TODO: when noftriangles is fixed this will be implicit
+    exp = {}
+    exp[attr] = new Float32Array(@nOfTriangles*9) for attr in ['vertices', 'normals']
+    @_eachFace (face, i) => @_addFace(face, exp, i*9)
+    @indices[i] = i for i in [0..@indices.length-1]
+    @[attr] = exp[attr] for attr in ['vertices', 'normals']
+    @verts = @vertices
+
   #_parseTextAMF: (text) ->
   # TODO: inflate the zip file here
   # new Blob([arrayBuffer], "application/zip")
@@ -307,19 +322,8 @@ class self.P3D.Parser
     magnitude = (v) -> Math.sqrt Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2)
     normalize = (v) -> (length = magnitude(v); v[i] = v[i]/length for i in [0..2])
 
-    # Adds a face's vertices and normals to the mesh at the given index
-    addFace = (face, mesh, index) -> for attr in ['vertices', 'normals']
-      mesh[attr][index+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
-
-    # Expanding (duplicating) the normals and verts so that there is a 1:1 of verts to indices
-    # This allows us to modify the normals on a per-face basis in edges and makes mesh spliting trivial
-    nOfTriangles = indices.length/3 # TODO: when noftriangles is fixed this will be implicit
-    exp = {}
-    exp[attr] = new Float32Array(nOfTriangles*9) for attr in ['vertices', 'normals']
-    @_eachFace (face, i) -> addFace(face, exp, i*9)
-    indices[i] = i for i in [0..indices.length-1]
-    @[attr] = exp[attr] for attr in ['vertices', 'normals']
-    @verts = @vertices
+    @_expandVerts()
+    nOfTriangles = @nOfTriangles
 
     # Define the normals for verts without a normal as the normal vector of the face
     @_eachFace @_calculateVertexNormals
@@ -328,9 +332,10 @@ class self.P3D.Parser
     # Counting Curved Surfaces
     subdivisionLevels = 4
     trianglesPerSurface = Math.pow 4, subdivisionLevels
-    @_eachFace (face) -> ( nOfTriangles += trianglesPerSurface-1 if !isFlat face )
+    @_eachFace (face) => ( nOfTriangles += trianglesPerSurface-1 if !isFlat face )
 
     # Subdividing Curved Surfaces
+    exp = {}
     exp[attr] = new Float32Array(nOfTriangles*9) for attr in ['vertices', 'normals']
     vertCount = 0
 
@@ -360,7 +365,7 @@ class self.P3D.Parser
       return newFaces
 
     # iterating through each original face and subdividing it if it is has non-uniform normals
-    @_eachFace (face, fIndex) ->
+    @_eachFace (face, fIndex) =>
       if isFlat face
         for attr in ['vertices', 'normals']
           exp[attr][vertCount+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
@@ -375,7 +380,7 @@ class self.P3D.Parser
           faces = newFaces
         # adding each subdivided face to the mesh
         for f in newFaces
-          addFace f, exp, vertCount
+          @_addFace f, exp, vertCount
           #addFace face, exp, vertCount
           vertCount += 9
 
@@ -400,8 +405,70 @@ class self.P3D.Parser
     @nOfTriangles = nOfTriangles
     undefined
 
+  # Runs a generalized line-based text parser on the given text
+  _parseEachLine: (text, prefixes, opts, callback) ->
+    # Finding the number of triangles in the mesh
+    nOfTriangles = 0
+
+    lines = (fn) -> eachLine text, (line, index) -> 
+      fn(line, index) if index >= opts.headerLines
+
+    lines (line) -> ( nOfTriangles++ if line.indexOf(prefixes.face) != -1 )
+
+    # Initializing normals and verts
+    @_initGeometry(nOfTriangles)
+
+    lines (line, index) ->
+      # Stripping whitespace and relaying it to the callback
+      line = line.replace(/^\s+|\s+$/g, '').replace(/\s{2,}/g, ' ').toLowerCase()
+      callback line, index
+    undefined
+
+
   _parseTextObj: (text) ->
-    # TODO!
+    prefixes = normal: "vn ", vert: "v ", face: "f "
+    indexCount = 0; vertCount = 0
+
+    @_parseEachLine text, prefixes, headerLines: 0, (line, index) =>
+      # Parsing verts
+      if startsWith line, prefixes.vert
+        vectorStrings = line.split(/\s/)[1..]
+        throw "Parsing Error: #{vectorStrings.length} vector vertex" if vectorStrings.length < 3
+        for s in vectorStrings[0..2]
+          @vertices[vertCount++] = v = parseFloat(s)
+          throw "Parsing Error: Vertex vector ##{vertCount} is not a number" if isNaN(v) or !isFinite(v)
+      else if startsWith line, prefixes.face
+        for str in line.split(/\s/)[1..]
+          @indices[indexCount++] = parseInt( str.split('/')[0] ) - 1
+      undefined
+    console.log @indices
+
+    @_expandVerts()
+    # Calculating normals
+    @_eachFace @_calculateVertexNormals
+    undefined
+
+  _parseTextStl: (text) -> # text stl format parser
+    prefixes = normal: "facet normal ", vert: "vertex ", face: "facet"
+    ignoredPrefixes = ["outer", "endloop", "facet", "endfacet", "endsolid"]
+    normalCount = 0; vertCount = 0
+
+    @_parseEachLine text, prefixes, headerLines: 1, (line, index) =>
+      # Parsing verts
+      if startsWith line, prefixes.vert
+        vectorStrings = line.split(/\s/)[1..]
+        throw "Parsing Error: #{vectorStrings.length} vector vertex" if vectorStrings.length != 3
+        for s in vectorStrings
+          @vertices[vertCount++] = v = parseFloat(s)
+          throw "Parsing Error: Vertex vector ##{vertCount} is not a number" if isNaN(v) or !isFinite(v)
+      # Catching invalid lines
+      else if line.length > 0
+        return if startsWith(line, k) for k in ignoredPrefixes
+        throw "Parsing Error: Invalid Line \n #{line}"
+      undefined
+    # Calculating normals
+    @_eachFace @_calculateVertexNormals
+    undefined
 
   _parseArrayBufferStl: (arrayBuffer) -> # binary stl format parser
     # Note: binary STLs are encoded as little endian
@@ -427,41 +494,6 @@ class self.P3D.Parser
       readUint16() # 2 byte "attributes byte count"
     @_eachFace @_calculateVertexNormals
     undefined # not returning the comprehension
-
-  _parseTextStl: (text) -> # text stl format parser
-    prefixes = normal: "facet normal ", vert: "vertex "
-    ignoredPrefixes = ["outer", "endloop", "facet", "endfacet", "endsolid"]
-    normalCount = 0
-    vertCount = 0
-
-    # Finding the number of triangles in the mesh
-    nOfTriangles = 0
-    eachLine text, (line, index) ->
-      return if index == 0 # skipping the header
-      nOfTriangles++ if line.indexOf(prefixes.normal) != -1
-
-    # Initializing normals and verts
-    [normals, verts, indices] = @_initGeometry(nOfTriangles)
-
-    eachLine text, (line, index) ->
-      return if index == 0 # skipping the header
-      # Stripping whitespace
-      line = line.replace(/^\s+|\s+$/g, '').replace(/\s{2,}/g, ' ').toLowerCase()
-      # Parsing verts
-      if startsWith line, prefixes.vert
-        vectorStrings = line.split(/\s/)[1..]
-        throw "Parsing Error: #{vectorStrings.length} vector vertex" if vectorStrings.length != 3
-        for s in vectorStrings
-          verts[vertCount++] = v = parseFloat(s)
-          throw "Parsing Error: Vertex vector ##{vertCount} is not a number" if isNaN(v) or !isFinite(v)
-      # Catching invalid lines
-      else if line.length > 0
-        return if startsWith(line, k) for k in ignoredPrefixes
-        throw "Parsing Error: Invalid Line \n #{line}"
-      undefined # not returning the comprehension
-    # Calculating normals
-    @_eachFace @_calculateVertexNormals
-    undefined
 
 
   # Mesh Manipulation Methods (File API/AJAX and Parser agnostic)

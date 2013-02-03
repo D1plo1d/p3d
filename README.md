@@ -13,10 +13,16 @@ The TL;DR here is: It's fast, it's standalone and it won't lock up the browser
 Project Status
 ---------------
 
-Both binary and ascii STLs are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (no compression or edge support yet).
+Binary and ascii STLs and OBJ files are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (no compression or edge support yet).
 
 WebWorker background processing is available via P3D's background option.
 
+Supported File Formats
+-----------------------
+
+* STL (Binary and ASCII)
+* OBJ
+* AMF (Additive Manufacturing File Format)
 
 Example Usage (in coffeescript)
 --------------------------------
