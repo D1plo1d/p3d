@@ -305,7 +305,8 @@ class self.P3D.Parser
         vA[0]*vB[1] - vA[1]*vB[0]
       ]
     magnitude = (v) -> Math.sqrt Math.pow(v[0],2) + Math.pow(v[1],2) + Math.pow(v[2],2)
-    
+    normalize = (v) -> (length = magnitude(v); v[i] = v[i]/length for i in [0..2])
+
     # Adds a face's vertices and normals to the mesh at the given index
     addFace = (face, mesh, index) -> for attr in ['vertices', 'normals']
       mesh[attr][index+j*3+k] = face[attr][j][k] for j in [0..2] for k in [0..2]
@@ -347,7 +348,7 @@ class self.P3D.Parser
         midVerts.push v01 = hermiteSpline(0.5, v, t, fIndex)
         # TODO: these normals are probably only aproximately correct.
         # What is the proper way to calculate these??
-        midNormals.push n01 = ( (n[1][i] + n[0][i])/2 for i in [0..2] )
+        midNormals.push n01 = normalize( (n[1][i] + n[0][i])/2 for i in [0..2] )
 
       newFaces = for i in [0..2] # calculating the outer subdivided faces
         vertices: [ midVerts[i], midVerts[ j = (i+2)%3 ], face.vertices[i] ]
