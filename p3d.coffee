@@ -133,7 +133,7 @@ class self.P3D
   constructor: (src) ->
     @src = src
     args = arguments
-    @opts = if args.length > 2 then args[1] else {background: false}
+    @opts = if args.length > 2 then args[1] else {background: true}
     @callback = args[args.length-1]
 
     # Determining the file name and the file type
@@ -142,6 +142,8 @@ class self.P3D
 
     if @_fileTypeWhitelist.indexOf(@fileType) == -1
       throw "Unable to parse file extension or unsupported file extension: #{@fileType}"
+
+    @opts.background = false if @fileType == "Amf"
 
     # Loading the object
     if typeof(@src) == "string" # load from URL
