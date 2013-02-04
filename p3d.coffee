@@ -277,7 +277,7 @@ class self.P3D.Parser
   # new Blob([arrayBuffer], "application/zip")
 
   _parseTextAmf: (text) ->
-    window.xml = xml = parseXml text
+    xml = parseXml text
     root = xml.documentElement
     xmlEval = (query) -> xml.evaluate query, xml, null, XPathResult.ANY_TYPE, null
     read = (node, k) -> node.getElementsByTagName(k)[0].textContent
@@ -441,7 +441,6 @@ class self.P3D.Parser
         for str in line.split(/\s/)[1..]
           @indices[indexCount++] = parseInt( str.split('/')[0] ) - 1
       undefined
-    console.log @indices
 
     @_expandVerts()
     # Calculating normals

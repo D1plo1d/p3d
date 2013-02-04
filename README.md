@@ -15,14 +15,21 @@ Project Status
 
 Binary and ascii STLs and OBJ files are currently fully supported from either local HTML5 File/Blob sources and ajax urls. However AMF files are only partially supported at the present time (no compression or edge support yet).
 
-WebWorker background processing is available via P3D's background option.
 
 Supported File Formats
------------------------
+------------------------
 
 * STL (Binary and ASCII)
 * OBJ
 * AMF (Additive Manufacturing File Format)
+
+
+Background Processing
+-----------------------
+WebWorker background processing is available via P3D's background option.*
+
+*Due to a Javscript limitation on DOM APIs in WebWorkers, AMF files cannot be parsed in the background.
+
 
 Example Usage (in coffeescript)
 --------------------------------
@@ -68,6 +75,7 @@ p3d = new P3D url, background: true, (p3d) -> for chunk, i in p3d.chunks
   model = new PhiloGL.O3D.Model()
   model[attr] = p3d[attr] for attr in ["vertices", "normals", "indices"]
 ```
+
 
 Requirements
 -------------
