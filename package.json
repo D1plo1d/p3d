@@ -1,0 +1,19 @@
+{
+    "name": "p3d"
+  , "version": "0.0.1"
+  , "private": true
+  , "description": "A Coffeescript 3D Mesh parser for a better web."
+  , "dependencies": {
+    "coffee-script": "1.3.3"
+    , "which": "*"
+    , "yuicompressor": "*"
+  }, "scripts": {
+    "install": "node node_modules/coffee-script/bin/cake bam"
+  }, "devDependencies": {
+    "coffee-script": "*"
+  },
+  "engines": {
+    "node": "~0.8.x",
+    "npm": "1.1.x"
+  }
+}
