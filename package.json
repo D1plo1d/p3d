@@ -6,7 +6,7 @@
   , "dependencies": {
     "coffee-script": "1.3.3"
     , "which": "*"
-    , "yuicompressor": "*"
+    , "uglify-js2": "*"
   }, "scripts": {
     "install": "node node_modules/coffee-script/bin/cake bam"
   }, "devDependencies": {

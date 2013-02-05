@@ -3,6 +3,7 @@ fs            = require 'fs'
 which         = require 'which'
 {spawn, exec} = require 'child_process'
 yui           = require 'yuicompressor'
+UglifyJS      = require "uglify-js2"
 
 # order of files in `inFiles` is important
 config =
@@ -53,15 +54,11 @@ task 'build', 'join and compile *.coffee files', build = (opts) ->
 
 task 'min', 'minify compiled *.js file', minify = ->
   log 'Minifying..', ''
-  yuiOpts = 'line-break': 80
-  yui.compress "#{outJS}.js", yuiOpts, (err, data, extra) ->
-    process.stderr.write err  if err
-    process.stdout.write extra if extra
-    return if err
-    fs.writeFile "#{outJS}.min.js", data, (err) ->
-      if err
-        process.stderr.write err
-      else
-        log 'Minifying..          [\x1B[0;32m DONE \x1B[0m]', ''
+  result = UglifyJS.minify "#{outJS}.js"
+  fs.writeFile "#{outJS}.min.js", result.code, (err) ->
+    if err
+      process.stderr.write err
+    else
+      log 'Minifying..          [\x1B[0;32m DONE \x1B[0m]', ''
 
 task 'bam', 'build and minify', -> build onSuccess: minify
