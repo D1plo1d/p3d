@@ -42,7 +42,7 @@ coffee = (options) ->
 
 task 'dev', 'start dev env', ->
   # watch_coffee
-  coffee ['-c', '-b', '-w', '-o', 'build', 'src']
+  coffee ['-c', '-w', '-o', config.outDir, config.srcDir]
   log 'Watching coffee files', green
 
 task 'build', 'join and compile *.coffee files', build = (opts) ->

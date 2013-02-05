@@ -83,6 +83,21 @@ Requirements
 P3D has no external requirements at the present time however it is expected that in future releases a javascript unzip/deflate library will be added as a requirement to allow P3D to parse zipped AMF files.
 
 
+Development
+------------
+
+### Requirements
+
+* NodeJS
+* NPM
+* `npm install` installs all other dependencies
+
+### Cake Tasks
+
+* `cake dev` - Watches and compiles p3d.coffee
+* `cake bam` - Compiles and minifies the library
+
+
 License
 --------
 
