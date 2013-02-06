@@ -106,7 +106,7 @@ Development
 
 ### Cake Tasks
 
-* `cake dev` - Watches and compiles .coffee files. Runs the P3D examples pages on http://localhost:3033/
+* `cake dev` - Watches and compiles .coffee files. Runs the P3D examples page on http://localhost:3033/
 * `cake bam` - Compiles and minifies the library
 
 
