@@ -1,5 +1,3 @@
-debug = true
-
 # Utils
 # -----------------------------------------------------
 
@@ -178,7 +176,7 @@ class self.P3D
 
   _dataTypeInfo: -> if @dataType == 'Text' then 'Text' else 'Binary'
 
-  _parsingDebugMsg: (done) -> if debug
+  _parsingDebugMsg: (done) -> if P3D.debug
     if done == true
       seconds = (new Date().getTime() - @_parserStartMs)/1000
       suffix = "[ DONE #{seconds}s ]"
@@ -552,3 +550,4 @@ class self.P3D.Parser
       opts
 
 P3D.prototype[k] = P3D.Parser.prototype[k] for k in ["_eachFace", "_face"]
+P3D.debug = false
