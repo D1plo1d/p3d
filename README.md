@@ -10,6 +10,12 @@ P3D's cutting edge use of HTML5 APIs (WebWorker, Typed Array, Blob, File, Blob U
 The TL;DR here is: It's fast, it's standalone and it won't lock up the browser
 
 
+Online Demo
+------------
+
+A online demo of P3D can be found [here](http://d1plo1d.github.com/p3d/examples/).
+
+
 Project Status
 ---------------
 
@@ -29,6 +35,12 @@ Background Processing
 WebWorker background processing is available via P3D's background option.*
 
 *Due to a Javscript limitation on DOM APIs in WebWorkers, AMF files cannot be parsed in the background.
+
+
+THREE.js Integration
+---------------------
+
+In addition to the platform independent P3D API there is now a threejs P3D geometry available for easier integration with threejs (see `lib/threejs_p3d_geometry.js`).
 
 
 Example Usage (in coffeescript)
@@ -94,7 +106,7 @@ Development
 
 ### Cake Tasks
 
-* `cake dev` - Watches and compiles p3d.coffee
+* `cake dev` - Watches and compiles .coffee files. Runs the P3D examples page on http://localhost:3033/
 * `cake bam` - Compiles and minifies the library
 
 
