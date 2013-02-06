@@ -7,6 +7,9 @@
     "coffee-script": "1.3.3"
     , "which": "*"
     , "uglify-js2": "*"
+    , "supervisor": "*"
+    , "express": "3.x" 
+    , "watch": "*"
   }, "devDependencies": {
     "coffee-script": "*"
   },

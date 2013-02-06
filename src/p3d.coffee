@@ -133,7 +133,7 @@ class self.P3D
   constructor: (src) ->
     @src = src
     args = arguments
-    @opts = if args.length > 2 then args[1] else {background: true}
+    @opts = (args[1] if args.length > 2) || {background: true}
     @callback = args[args.length-1]
 
     # Determining the file name and the file type

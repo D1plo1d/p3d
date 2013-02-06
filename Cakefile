@@ -44,6 +44,11 @@ task 'dev', 'start dev env', ->
   # watch_coffee
   coffee ['-c', '-w', '-o', config.outDir, config.srcDir]
   log 'Watching coffee files', green
+  # watch_js
+  supervisor = spawn 'node', ['./node_modules/supervisor/lib/cli-wrapper.js','-w','lib,examples/server.js', '-e', 'js|jade', './examples/server']
+  supervisor.stdout.pipe process.stdout
+  supervisor.stderr.pipe process.stderr
+  log 'Watching js files and running example server', green
 
 task 'build', 'join and compile *.coffee files', build = (opts) ->
   log 'Building..', ''

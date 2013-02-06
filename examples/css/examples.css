@@ -1,0 +1,35 @@
+.text, .arrow {
+  margin: 60px;
+}
+
+.text {
+  position: absolute;
+  margin-top: 10px;
+  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size: 20px;
+  line-height: 40px;
+  color: #333333;
+}
+
+.arrow {
+  display: block;
+  position: absolute;
+  top: 50%;
+  font-size: 40px;
+  margin-top: -20px;
+  color: #000000;
+  text-decoration: none;
+}
+
+.arrow:hover {
+  color: #ff0000;
+}
+
+.arrow-left {
+  left: 0px;
+}
+
+.arrow-right {
+  right: 0px;
+  text-align: right;
+}
