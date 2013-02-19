@@ -8,74 +8,159 @@
   <link href="css/examples.css" media="screen" rel="stylesheet" type="text/css">
 
   <script src="js/p3d.js"></script>
-  <script src="js/three.min.js"></script>
-  <script src="js/threejs_p3d_geometry.js"></script>
+  <script src="js/PhiloGL.js"></script>
+  <script src="js/philogl_p3d_model.js"></script>
+
+  <script id="shader-fs" type="x-shader/x-fragment">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    varying vec4 vColor;
+
+    void main(void) {
+      gl_FragColor = vColor;
+    }
+  </script>
+
+  <script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec4 aVertexColor;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying vec4 vColor;
+
+    void main(void) {
+      gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+      vColor = aVertexColor;
+    }
+  </script>
 
   <script>
+    var files = ["Sphere20Face.amf", "cow.obj", "pawn.stl", "DNA_Righthanded.stl"];
+    var fileIndex = 0;
 
-      var files = ["Sphere20Face.amf", "cow.obj", "pawn.stl", "DNA_Righthanded.stl"];
-      var fileIndex = 0;
+    var camera, scene, renderer;
+    var geometry, material, mesh;
 
-      var camera, scene, renderer;
-      var geometry, material, mesh;
 
-      P3D.debug = true;
+    var app, gl, camera, scene, canvas;
 
-      function init() {
+    P3D.debug = true;
 
-        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
-        camera.position.z = 400;
+    function init() {
 
-        scene = new THREE.Scene();
+      PhiloGL("philogl-canvas-1", {
+        /*program: {
+          from: 'ids',
+          vs: 'shader-vs',
+          fs: 'shader-fs'
+        },*/
+        program: {
+          from: 'uris',
+          vs: 'shaders/shader.vs.glsl',
+          fs: 'shaders/shader.fs.glsl'
+        },
+        camera: {
+          fov:  40,
+          near: 1,
+          far: 1000
+        },
+        scene: {
+          lights: {
+            enable: true,
+            ambient: { r: ambient = 0.3, g: ambient, b: ambient },
+            directional: {
+              color: { r: d=0.2, g: d, b: d },
+              direction: { x: 0.3, y: -0.3, z: -1 }
+            }
+          }
+        },
+        onLoad: function (a) {
+          app = a;
+          console.log(app);
+          setTimeout(onPhiloGLLoad, 0);
+        }
+      });
 
-        url = "meshes/Sphere20Face.amf";
-        geometry = new THREE.P3DGeometry(url);
+    }
 
-        material = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe: true } );
-        mesh = new THREE.Mesh( geometry, material );
-        scene.add( mesh );
+    function onPhiloGLLoad() {
+      gl = app.gl;
+      program = app.program;
+      camera = app.camera;
+      scene = app.scene;
+      canvas = app.canvas;
 
-        renderer = new THREE.CanvasRenderer();
-        renderer.setSize( window.innerWidth, window.innerHeight );
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      // initializing the WebGL settings
+      gl.clearColor(0, 0, 0, 1);
+      //gl.clearColor(1, 1, 1, 1);
+      gl.clearDepth(1);
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LEQUAL);
+      //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      //gl.enable(gl.BLEND);
 
-        document.body.appendChild( renderer.domElement );
+      // initializing the camera
+      camera.position.set(new PhiloGL.Vec3(0, 10, 70));
+      camera.target.set(0,0,-1);
+      camera.update();
 
-      }
+      var d = 0.2;
+      o3d = new PhiloGL.O3D.Cube({
+        color: { r: d, g: d, b: d }
+      });
+      o3d.scale = new PhiloGL.Vec3(21,21,21);
+      o3d.position.set(0,0,0);
+      o3d.rotation.set(0,0,0);
+      o3d.update();
+      scene.add(o3d);
 
-      function animate() {
+      animate();
 
-        // note: three.js includes requestAnimationFrame shim
-        requestAnimationFrame( animate );
+    }
 
-        mesh.rotation.x += 0.01;
-        mesh.rotation.y += 0.02;
+    function animate() {
 
-        renderer.render( scene, camera );
+      //console.log("moo")
 
-      }
+      //mesh.rotation.x += 0.01;
+      //mesh.rotation.y += 0.02;
 
-      function onLoad() {
+      // Clear Screen
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      // Draw everything
+      scene.render();
 
-        init();
-        animate();
+      // note: three.js includes requestAnimationFrame shim
+      PhiloGL.Fx.requestAnimationFrame( animate );
 
-      }
+    }
 
-      function loadFile(inc) {
+    function loadFile(inc) {
 
-        fileIndex += inc;
-        if (fileIndex < 0) fileIndex = files.length - 1;
-        if (fileIndex == files.length) fileIndex = 0;
-        geometry.loadURL("meshes/"+files[fileIndex]);
+      fileIndex += inc;
+      if (fileIndex < 0) fileIndex = files.length - 1;
+      if (fileIndex == files.length) fileIndex = 0;
+      geometry.load("meshes/"+files[fileIndex]);
 
-      }
+    }
 
   </script>
 </head>
 
-<body onLoad="onLoad()">
+<body onLoad="init()">
   <div class="text">
-    This example demonstrates how to load a file into THREE.js using P3D.
+    This example demonstrates how to load a file into <span style="color: #6699FF">PhiloGL</span> using P3D.
+  </div>
+  <div class="text-bottom">
+    A
+    <a href= "threejs.html" class="threejs">THREE.js</a>
+    Example is also available.
   </div>
   <a class="arrow arrow-left" href="#" onClick="loadFile(-1)">
     <i class="icon-chevron-left"></i>
@@ -83,6 +168,7 @@
   <a class="arrow arrow-right" href="#" onClick="loadFile(+1)">
     <i class="icon-chevron-right"></i>
   </a>
+  <canvas id="philogl-canvas-1" width="900" height="500"></canvas>
 </body>
 
 </html>

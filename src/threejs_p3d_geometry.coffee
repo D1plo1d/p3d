@@ -1,14 +1,10 @@
 class THREE.P3DGeometry extends THREE.Geometry
 
-  constructor: (url, @opts, @callback) ->
+  constructor: (@opts = {}, @callback) ->
     THREE.Geometry.call @
-    if !opts?
-      @callback = @opts
-      @opts = url
-    @loadURL url if url?
-    console.log @
+    @load opts.src if opts.src?
 
-  loadURL: (url) => new P3D(url, @opts, @_onP3DLoad)
+  load: (src) => new P3D(src, @opts, @_onP3DLoad)
 
   _onP3DLoad: (p3d) =>
     i = 0
@@ -35,4 +31,4 @@ class THREE.P3DGeometry extends THREE.Geometry
     @computeFaceNormals()
     @computeVertexNormals()
 
-    @callback?()
+    @callback?(p3d)

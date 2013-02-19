@@ -8,26 +8,21 @@
 
     __extends(P3DGeometry, _super);
 
-    function P3DGeometry(url, opts, callback) {
-      this.opts = opts;
+    function P3DGeometry(opts, callback) {
+      this.opts = opts != null ? opts : {};
       this.callback = callback;
       this._onP3DLoad = __bind(this._onP3DLoad, this);
 
-      this.loadURL = __bind(this.loadURL, this);
+      this.load = __bind(this.load, this);
 
       THREE.Geometry.call(this);
-      if (!(opts != null)) {
-        this.callback = this.opts;
-        this.opts = url;
+      if (opts.src != null) {
+        this.load(opts.src);
       }
-      if (url != null) {
-        this.loadURL(url);
-      }
-      console.log(this);
     }
 
-    P3DGeometry.prototype.loadURL = function(url) {
-      return new P3D(url, this.opts, this._onP3DLoad);
+    P3DGeometry.prototype.load = function(src) {
+      return new P3D(src, this.opts, this._onP3DLoad);
     };
 
     P3DGeometry.prototype._onP3DLoad = function(p3d) {
@@ -52,7 +47,7 @@
       this.computeCentroids();
       this.computeFaceNormals();
       this.computeVertexNormals();
-      return typeof this.callback === "function" ? this.callback() : void 0;
+      return typeof this.callback === "function" ? this.callback(p3d) : void 0;
     };
 
     return P3DGeometry;

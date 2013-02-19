@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>P3D Examples</title>
+
+  <link href="css/font-awesome.min.css" media="screen" rel="stylesheet" type="text/css">
+  <link href="css/examples.css" media="screen" rel="stylesheet" type="text/css">
+
+  <script src="js/p3d.js"></script>
+  <script src="js/three.min.js"></script>
+  <script src="js/threejs_p3d_geometry.js"></script>
+
+  <script>
+
+      var files = ["Sphere20Face.amf", "cow.obj", "pawn.stl", "DNA_Righthanded.stl"];
+      var fileIndex = 0;
+
+      var camera, scene, renderer;
+      var geometry, material, mesh;
+
+      P3D.debug = true;
+
+      function init() {
+
+        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+        camera.position.z = 400;
+
+        scene = new THREE.Scene();
+
+        url = "meshes/Sphere20Face.amf";
+        geometry = new THREE.P3DGeometry({src: url});
+
+        material = new THREE.MeshBasicMaterial( { color: 0xff0000, wireframe: true } );
+        mesh = new THREE.Mesh( geometry, material );
+        scene.add( mesh );
+
+        renderer = new THREE.CanvasRenderer();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+        document.body.appendChild( renderer.domElement );
+
+      }
+
+      function animate() {
+
+        // note: three.js includes requestAnimationFrame shim
+        requestAnimationFrame( animate );
+
+        mesh.rotation.x += 0.01;
+        mesh.rotation.y += 0.02;
+
+        renderer.render( scene, camera );
+
+      }
+
+      function onLoad() {
+
+        init();
+        animate();
+
+      }
+
+      function loadFile(inc) {
+
+        fileIndex += inc;
+        if (fileIndex < 0) fileIndex = files.length - 1;
+        if (fileIndex == files.length) fileIndex = 0;
+        geometry.load("meshes/"+files[fileIndex]);
+
+      }
+
+  </script>
+</head>
+
+<body onLoad="onLoad()">
+  <div class="text">
+    This example demonstrates how to load a file into <span class="threejs">THREE.js</span> using P3D.
+  </div>
+  <div class="text-bottom">
+    A
+    <a href= "index.html" class="philogl">PhiloGL</a>
+    Example is also available.
+  </div>
+  <a class="arrow arrow-left" href="#" onClick="loadFile(-1)">
+    <i class="icon-chevron-left"></i>
+  </a>
+  <a class="arrow arrow-right" href="#" onClick="loadFile(+1)">
+    <i class="icon-chevron-right"></i>
+  </a>
+</body>
+
+</html>

@@ -1,14 +1,35 @@
-.text, .arrow {
+.text, .text-bottom, .arrow {
   margin: 60px;
 }
 
 .text {
   position: absolute;
   margin-top: 10px;
+}
+
+.text, .text-bottom {
   font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
   font-size: 20px;
   line-height: 40px;
   color: #333333;
+}
+
+.text-bottom {
+  position: absolute;
+  bottom: 0px;
+  margin-bottom: 10px;
+}
+
+.threejs {
+  color: #ff0000
+}
+
+.philogl {
+  color: #6699FF
+}
+
+a {
+  text-decoration: none;
 }
 
 .arrow {
@@ -18,7 +39,6 @@
   font-size: 40px;
   margin-top: -20px;
   color: #000000;
-  text-decoration: none;
 }
 
 .arrow:hover {
