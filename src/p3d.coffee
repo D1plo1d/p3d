@@ -90,15 +90,16 @@ isWorker = (self.document == undefined)
 workerReturnedKeys = ['normals', 'vertices', 'indices', 'nOfTriangles', 'blob']
 if !isWorker
   webWorkerFn = arguments.callee
+  _webWorkerURL = undefined
   # Getting a blob url reference to this script's closure
-  webWorkerURL = =>
-    return @webWorkerURL if @webWorkerURL?
+  webWorkerURL = ->
+    return _webWorkerURL if _webWorkerURL?
     # Removing the closure from the worker's js because it caused syntax issues in chrome 24
     str = webWorkerFn.toString()
     str = str.replace(/^\s*function\s*\(\) {/, "").replace(/}\s*$/, '')
 
     webWorkerBlob = new Blob [str], type: "text/javascript"
-    @webWorkerURL = (window.URL || window.webkitURL).createObjectURL webWorkerBlob
+    _webWorkerURL = (window.URL || window.webkitURL).createObjectURL webWorkerBlob
 else
   parserPipeline = null
   data = null
