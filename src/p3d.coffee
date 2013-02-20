@@ -87,7 +87,7 @@ base64_encode = (data) ->
 # -----------------------------------------------------
 
 isWorker = (self.document == undefined)
-webWorkerAttrs = ['normals', 'vertices', 'indices', 'nOfTriangles', 'chunks']
+workerReturnedKeys = ['normals', 'vertices', 'indices', 'nOfTriangles', 'blob']
 if !isWorker
   webWorkerFn = arguments.callee
   # Getting a blob url reference to this script's closure
@@ -106,14 +106,14 @@ else
   attemptTransfer = navigator.userAgent.toLowerCase().indexOf('firefox/18') == -1
   # Running a slave P3D instance in the webworker
   @onmessage = (event) ->
-    parser = new P3D.Parser(event.data)
-    # Returning the data
-    msg = {}
-    msg[k] = parser[k] for k in webWorkerAttrs
-    transfers = ( parser[k].buffer for k in ['normals', 'vertices', 'indices'] )
-    if parser.chunks?
-      transfers.push chunk[k].buffer for k in ['normals', 'vertices', 'indices'] for chunk in parser.chunks
-    postMessage msg, if attemptTransfer then transfers else undefined
+    parser = new P3D.Worker event.data, ->
+      # Returning the data
+      msg = {}
+      msg[k] = parser[k] for k in workerReturnedKeys
+      transfers = ( parser[k].buffer for k in ['normals', 'vertices', 'indices'] )
+      postMessage msg, if attemptTransfer then transfers else undefined
+
+
 
 
 # P3D
@@ -131,13 +131,18 @@ class self.P3D
   #  opts: (optional) a object containing properties for this parser
   #     background: (boolean) if true this parser will spawn a webworker and run outside the UI thread
   #  callback: the fn to run once the 3d geometry has been parsed
-  constructor: (@src, @opts) ->
+  constructor: (src, @opts) ->
     args = arguments
     @opts = {background: true} if args.length < 3 or !( @opts? )
     @callback = args[args.length-1]
 
+    if src.vertices? and src.indices? and src.normals?
+      # Import native P3D attributes directly
+      @_initWorker src
+      return @
+
     # Determining the file name and the file type
-    @filename = if typeof(@src) == "string" then @src.split("/").pop().replace("/", "") else @src.name
+    @filename = if typeof(src) == "string" then src.split("/").pop().replace("/", "") else src.name
     @fileType = capitalize fileExt(@filename).toLowerCase()
 
     if @_fileTypeWhitelist.indexOf(@fileType) == -1
@@ -146,98 +151,91 @@ class self.P3D
     @opts.background = false if @fileType == "Amf"
 
     # Loading the object
-    if typeof(@src) == "string" # load from URL
-      ajax url: @src, (response) => @_initReader "Text", response
-    else # load from local file or blob (HTML5 file API)
-      @_initReader "Text", @src
+    if typeof(src) == "string"
+      # load from URL
+      ajax url: src, (response) => @_initWorker blob: response
+    else if Blob.isPrototypeOf(src) or File.isPrototypeOf(src)
+      # load from local file or blob (HTML5 file API)
+      @_initWorker blob: src
+    else
+      throw "Invalid P3D src object."
 
 
-  # Blob Loading
+  # Worker Interface (File API/AJAX agnostic)
   # ------------------------------------------------------
 
-  _initReader: (type, @blob) ->
-    @dataType = type
-    r = @reader = new FileReader()
-    r.onload = @_onReaderLoad
-    r["readAs#{type}"] @blob
+  _debug: -> P3D.debug? and P3D.debug
 
-  _binaryStlCheck: (text) ->
-    @fileType == "Stl" and @dataType == "Text" and text[0..80].match(/^solid /) == null
-
-  _onReaderLoad: () =>
-    data = @reader.result
-    delete @reader
-    # If the STL file turns out not to be a text file then reread it as an array buffer
-    return @_initReader("ArrayBuffer", @blob) if @_binaryStlCheck(data)
-    @_parse data
-
-
-  # Parsing Interface (File API/AJAX agnostic)
-  # ------------------------------------------------------
-
-  _dataTypeInfo: -> if @dataType == 'Text' then 'Text' else 'Binary'
-
-  _parsingDebugMsg: (done) -> if P3D.debug
+  _workerDebugMsg: (done) -> if @_debug()
     if done == true
       seconds = (new Date().getTime() - @_parserStartMs)/1000
       suffix = "[ DONE #{seconds}s ]"
     else
       @_parserStartMs = new Date().getTime()
       suffix = ''
-    console.log "Parsing #{@filename} as #{@_dataTypeInfo().toLowerCase()} #{@fileType.toUpperCase()}.. #{suffix}"
+    console.log "Parsing #{@filename} as #{@fileType.toUpperCase()}.. #{suffix}"
 
-  _parse: (data) ->
-    @_parsingDebugMsg(false)
-    parserOpts = pipeline: ["_parse#{@dataType}#{@fileType}"], data: data
+  _initWorker: (workerOpts) ->
+    @_workerDebugMsg false
+    workerOpts.pipeline = @opts.pipeline || []
+    workerOpts.fileType = @fileType
+    workerOpts.scale = @opts.scale
+
     if @opts.background == true
-      console.log "Running as a background job"
+      console.log "Running as a background job" if @_debug()
       worker = new Worker webWorkerURL()
-      worker.onmessage = (e) => @_onParsingComplete(e.data)
+
+      worker.onmessage = (e) => @_onWorkerComplete(e.data)
       worker.addEventListener "error", ((e) -> console.log e), false
       worker.postMessage = worker.webkitPostMessage || worker.postMessage
-      worker.postMessage parserOpts, if @dataType == 'Text' then [] else [data]
-      # TODO: remove data parser dependancy. it is long and bloated and won't work in web workers.
-    else
-      @_onParsingComplete new P3D.Parser parserOpts
 
-  _onParsingComplete: (parser) ->
-    @[k] = parser[k] for k in webWorkerAttrs
-    @verts = @vertices
-    @_parsingDebugMsg(true)
+      transfers = []
+      for k in ["vertices", "normals", "indices"]
+        transfers.push workerOpts[k] if workerOpts[k]?
+      console.log workerOpts
+
+      worker.postMessage workerOpts, transfers
+    else
+      new P3D.Worker workerOpts, @_onWorkerComplete
+
+  _onWorkerComplete: (worker) =>
+    @[k] = worker[k] for k in workerReturnedKeys
+    console.log @
+    @_workerDebugMsg true
     @callback @
 
 
-  # Exporting Methods
+
+
+# The P3D Worker: Where everything gets done
+# ------------------------------------------------------
+workerOptKeys = ["blob", "vertices", "indices", "normals", "fileType", "scale"]
+
+class self.P3D.Worker
+  constructor: (opts, @callback) ->
+    @[k] = opts[k] for k in workerOptKeys
+
+    @pipeline = opts.pipeline || []
+    @_prependToPipeline "_applyScaling"
+
+    if @blob?
+      # Parsing the data from it's raw format
+      @_initReader "Text"
+    else
+      @_executePipeline()
+      @callback @
+
+
+  # Helper Methods (File API/AJAX agnostic)
   # ------------------------------------------------------
 
-  # TODO: This method only works for small objects with less then ~196614 verts. I don't know why.
-  # TODO: determine if this bug was solved with the uint16 indices fix
-  exportTextStl: ->
-    str = "solid P3D\n"
-    formatFloat = (flt, i)-> (if sign(flt) >= 0 or i == 0 then " " else "") + flt.toExponential(6)
-    formatVector = (array, v) -> (formatFloat(array[i], if v then i else 1) for i in [0..2]).join(" ")
+  _prependToPipeline: (fnName) ->
+    @pipeline.reverse().push fnName
+    @pipeline.reverse()
 
-    @_eachFace (f, i) ->
-      str += "  facet normal #{ formatVector f.normals[0], false }\n"
-      str += "    outer loop\n"
-      str += "      vertex #{ formatVector v, true }\n" for v in f.vertices
-      str += "    endloop\n"
-      str += "  endfacet\n"
-
-    str += "endsolid P3D"
-    str = str.replace(/e\+([0-9][^0-9])/g, "e+0$1")
-    str = str.replace(/e\-([0-9][^0-9])/g, "e-0$1")
-    return new Blob [str], type: "application/octet-stream"
-
-
-# Parsing Methods (File API/AJAX agnostic)
-# ------------------------------------------------------
-class self.P3D.Parser
-  constructor: (opts) ->
-    # Parsing the data from it's raw format
-    @[opts.pipeline[0]](opts.data)
+  _executePipeline: ->
     # Running any post processing steps
-    @[method]() for method in opts.pipeline[1..]
+    @[@pipeline.pop()]() while @pipeline.length > 0
 
   _toMillimeters: (unitsOfMeasurement) ->
     conversions = {mm: 1.0, millimeter: 1.0, meter: 1000.0, inch: 25.4, feet: 304.8, micron: 0.001}
@@ -272,10 +270,34 @@ class self.P3D.Parser
     @[attr] = exp[attr] for attr in ['vertices', 'normals']
     @verts = @vertices
 
-  #_parseTextAMF: (text) ->
-  # TODO: inflate the zip file here
-  # new Blob([arrayBuffer], "application/zip")
 
+  # Blob Loading
+  # ------------------------------------------------------
+
+  _initReader: (type) ->
+    @dataType = type if type?
+    r = @reader = new FileReader()
+    r.onload = @_onReaderLoad
+    r["readAs#{type}"] @blob
+
+  _binaryStlCheck: (text) ->
+    @fileType == "Stl" and @dataType == "Text" and text[0..80].match(/^solid /) == null
+
+  _onReaderLoad: () =>
+    data = @reader.result
+    delete @reader
+    # If the STL file turns out not to be a text file then reread it as an array buffer
+    return @_initReader("ArrayBuffer") if @_binaryStlCheck(data)
+    # Parsing the data
+    @["_parse#{@dataType}#{@fileType}"] data
+    @_executePipeline()
+    @callback @
+
+
+  # Parsing Methods (File API/AJAX agnostic)
+  # ------------------------------------------------------
+
+  # TODO: inflate the zip file here
   _parseTextAmf: (text) ->
     xml = parseXml text
     root = xml.documentElement
@@ -495,8 +517,40 @@ class self.P3D.Parser
     undefined # not returning the comprehension
 
 
+  # Exporting Methods
+  # ------------------------------------------------------
+
+  # TODO: This method only works for small objects with less then ~196614 verts. I don't know why.
+  # TODO: determine if this bug was solved with the uint16 indices fix
+  exportTextStl: ->
+    str = "solid P3D\n"
+    formatFloat = (flt, i)-> (if sign(flt) >= 0 or i == 0 then " " else "") + flt.toExponential(6)
+    formatVector = (array, v) -> (formatFloat(array[i], if v then i else 1) for i in [0..2]).join(" ")
+
+    @_eachFace (f, i) ->
+      str += "  facet normal #{ formatVector f.normals[0], false }\n"
+      str += "    outer loop\n"
+      str += "      vertex #{ formatVector v, true }\n" for v in f.vertices
+      str += "    endloop\n"
+      str += "  endfacet\n"
+
+    str += "endsolid P3D"
+    str = str.replace(/e\+([0-9][^0-9])/g, "e+0$1")
+    str = str.replace(/e\-([0-9][^0-9])/g, "e-0$1")
+    return new Blob [str], type: "application/octet-stream"
+
+
   # Mesh Manipulation Methods (File API/AJAX and Parser agnostic)
   # ---------------------------------------------------------------
+
+  # Scales the mesh by the scale option's value (either a number or an array of per-axis numbers)
+  _applyScaling: -> if @scale?
+    scale = @scale
+    scale = (scale for i in [0..2]) if typeof(scale) == "number"
+
+    for i in [0..2]
+      for j in [0..@vertices.length] by 3
+        @vertices[i+j] = @vertices[i+j] * scale[i]
 
   # iterates over all the faces of the mesh
   _eachFace: (fn) =>
@@ -531,24 +585,3 @@ class self.P3D.Parser
     for i in [0..2]
       if f.normals[i][0] == 0 and f.normals[i][1] == 0 and f.normals[i][2] == 0
         f.normals[i][j] = vN[j] for j in [0..2]
-
-  # Splits the object into 2^16 vert chunks and returns the chunks
-  split: () => # TODO: since each object's verts are 1:1 with indices at this point we can use monolithic subarrays here
-    #console.log "splitting"
-    bytesPerMesh = Math.pow(2,16) # is this even in bytes!?
-    bytesPerMesh -= bytesPerMesh % 9 # Rounding the bytes per mesh down to the nearest face
-
-    @chunks = for startIndex in [0..@indices.length-1] by bytesPerMesh
-      oldIndices = @indices.subarray startIndex, startIndex + bytesPerMesh
-      opts = indices: new Uint16Array(oldIndices.length), vertices: [], normals: []
-      opts.indices[i] = i for i in [0..opts.indices.length-1]
-
-      for oldIndex, newIndex in oldIndices
-        for k in [0..2]
-          opts.vertices[newIndex*3+k] = @vertices[oldIndex*3+k]
-          opts.normals[ newIndex*3+k] = @normals[ oldIndex*3+k]
-      opts[k] = new Float32Array(opts[k]) for k in ['vertices', 'normals']
-      opts
-
-P3D.prototype[k] = P3D.Parser.prototype[k] for k in ["_eachFace", "_face"]
-P3D.debug = false
