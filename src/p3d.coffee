@@ -106,11 +106,11 @@ else
   attemptTransfer = navigator.userAgent.toLowerCase().indexOf('firefox/18') == -1
   # Running a slave P3D instance in the webworker
   @onmessage = (event) ->
-    parser = new P3D.Worker event.data, ->
+    new P3D.Worker event.data, (worker) ->
       # Returning the data
       msg = {}
-      msg[k] = parser[k] for k in workerReturnedKeys
-      transfers = ( parser[k].buffer for k in ['normals', 'vertices', 'indices'] )
+      msg[k] = worker[k] for k in workerReturnedKeys
+      transfers = ( worker[k].buffer for k in ['normals', 'vertices', 'indices'] )
       postMessage msg, if attemptTransfer then transfers else undefined
 
 
@@ -131,14 +131,15 @@ class self.P3D
   #  opts: (optional) a object containing properties for this parser
   #     background: (boolean) if true this parser will spawn a webworker and run outside the UI thread
   #  callback: the fn to run once the 3d geometry has been parsed
-  constructor: (src, @opts) ->
-    args = arguments
-    @opts = {background: true} if args.length < 3 or !( @opts? )
-    @callback = args[args.length-1]
+  constructor: (src, @opts, @callback) ->
+    if typeof(@opts) == 'function'
+      @callback = @opts
+      @opts = undefined
+    @opts = {background: true} unless @opts?
 
     if src.vertices? and src.indices? and src.normals?
       # Import native P3D attributes directly
-      @_initWorker src
+      @_initWorker vertices: src.vertices, indices: src.indices, normals: src.normals
       return @
 
     # Determining the file name and the file type
@@ -154,11 +155,17 @@ class self.P3D
     if typeof(src) == "string"
       # load from URL
       ajax url: src, (response) => @_initWorker blob: response
-    else if Blob.isPrototypeOf(src) or File.isPrototypeOf(src)
+    else if (src instanceof Blob) or (src instanceof File)
       # load from local file or blob (HTML5 file API)
       @_initWorker blob: src
     else
       throw "Invalid P3D src object."
+
+  # Clones a new P3D object from copies of this P3D's normals, vertices and indices.
+  cloneFromMesh: (opts, callback) =>
+    newSrc = {}
+    newSrc[k] = new Float32Array(@[k]) for k in ["normals", "vertices", "indices"]
+    new P3D newSrc, opts, callback
 
 
   # Worker Interface (File API/AJAX agnostic)
@@ -173,7 +180,8 @@ class self.P3D
     else
       @_parserStartMs = new Date().getTime()
       suffix = ''
-    console.log "Parsing #{@filename} as #{@fileType.toUpperCase()}.. #{suffix}"
+    asType = if @fileType? then " as #{@fileType.toUpperCase()}" else ""
+    console.log "Processing #{@filename || 'unnamed model'}#{asType}.. #{suffix}"
 
   _initWorker: (workerOpts) ->
     @_workerDebugMsg false
@@ -191,8 +199,7 @@ class self.P3D
 
       transfers = []
       for k in ["vertices", "normals", "indices"]
-        transfers.push workerOpts[k] if workerOpts[k]?
-      console.log workerOpts
+        transfers.push workerOpts[k].buffer if workerOpts[k]?
 
       worker.postMessage workerOpts, transfers
     else
@@ -200,9 +207,8 @@ class self.P3D
 
   _onWorkerComplete: (worker) =>
     @[k] = worker[k] for k in workerReturnedKeys
-    console.log @
     @_workerDebugMsg true
-    @callback @
+    @callback? @
 
 
 
@@ -216,7 +222,7 @@ class self.P3D.Worker
     @[k] = opts[k] for k in workerOptKeys
 
     @pipeline = opts.pipeline || []
-    @_prependToPipeline "_applyScaling"
+    @pipeline.push "_applyScaling"
 
     if @blob?
       # Parsing the data from it's raw format
@@ -228,10 +234,6 @@ class self.P3D.Worker
 
   # Helper Methods (File API/AJAX agnostic)
   # ------------------------------------------------------
-
-  _prependToPipeline: (fnName) ->
-    @pipeline.reverse().push fnName
-    @pipeline.reverse()
 
   _executePipeline: ->
     # Running any post processing steps
@@ -537,7 +539,7 @@ class self.P3D.Worker
     str += "endsolid P3D"
     str = str.replace(/e\+([0-9][^0-9])/g, "e+0$1")
     str = str.replace(/e\-([0-9][^0-9])/g, "e-0$1")
-    return new Blob [str], type: "application/octet-stream"
+    @blob = new Blob [str], type: "application/octet-stream"
 
 
   # Mesh Manipulation Methods (File API/AJAX and Parser agnostic)
@@ -548,9 +550,9 @@ class self.P3D.Worker
     scale = @scale
     scale = (scale for i in [0..2]) if typeof(scale) == "number"
 
-    for i in [0..2]
-      for j in [0..@vertices.length] by 3
-        @vertices[i+j] = @vertices[i+j] * scale[i]
+    for i in [0..@vertices.length] by 3
+      for j in [0..2]
+        @vertices[i+j] = @vertices[i+j] * scale[j]
 
   # iterates over all the faces of the mesh
   _eachFace: (fn) =>
