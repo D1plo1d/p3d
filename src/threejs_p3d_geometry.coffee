@@ -11,19 +11,19 @@ class THREE.P3DGeometry extends THREE.Geometry
     @faces = []
     @vertices = []
 
-    p3d._eachFace (face) =>
+    for i in [0..p3d.indices.length-3] by 3
+      indices = p3d.indices.subarray i, i+3
 
-      n = face.normals[0]
-
-      normal = new THREE.Vector3 n[0], n[1], n[2]
+      n = indices[0] * 3
+      normal = new THREE.Vector3 p3d.normals[n], p3d.normals[n + 1], p3d.normals[n + 2]
 
       face3 = new THREE.Face3 i++, i++, i++
       face3.normal.copy normal
       face3.vertexNormals.push normal.clone(), normal.clone(), normal.clone()
 
-      for j in [0..2]
-        v = face.vertices[j]
-        @vertices.push new THREE.Vector3( v[0], v[1], v[2] )
+      for index in indices
+        n = index * 3
+        @vertices.push new THREE.Vector3 p3d.vertices[n], p3d.vertices[n + 1], p3d.vertices[n + 2]
 
       @faces.push face3
 
